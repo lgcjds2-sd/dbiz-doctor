@@ -328,7 +328,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
-        max_tokens: 8192,
+        max_tokens: 16000,
         tools: [TOOL_SCHEMA],
         tool_choice: { type: 'tool', name: 'submit_diagnosis_analysis' },
         messages: [{ role: 'user', content: buildPrompt(context) }],
@@ -344,6 +344,16 @@ Deno.serve(async (req) => {
     }
 
     const anthropicJson = await anthropicRes.json()
+
+    if (anthropicJson.stop_reason === 'max_tokens') {
+      return new Response(
+        JSON.stringify({
+          error: 'AI 응답이 토큰 한도를 초과해 잘렸습니다. 다시 시도해 주세요.',
+        }),
+        { status: 502, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+      )
+    }
+
     const toolUse = anthropicJson.content?.find((block: any) => block.type === 'tool_use')
     if (!toolUse) {
       return new Response(JSON.stringify({ error: 'AI 응답에서 분석 결과를 찾을 수 없습니다.' }), {
@@ -370,17 +380,30 @@ Deno.serve(async (req) => {
       action_plan: (Record<string, unknown> & { phase: string; due_day_offset: number })[]
     }
 
+    // AI가 일부 필드를 누락하거나(토큰 한도, 스키마 해석 차이 등) 응답해도
+    // 파이프라인 전체가 실패하지 않도록 모든 배열/객체 필드에 방어적 기본값을 둔다.
+    const keyVariables = result.key_variables ?? []
+    const causalRelationships = result.causal_relationships ?? []
+    const reinforcingLoops = result.reinforcing_loops ?? []
+    const balancingLoops = result.balancing_loops ?? []
+    const systemArchetypes = result.system_archetype_candidates ?? []
+    const leveragePointsSummary = result.leverage_points_summary ?? []
+    const deepQuestions = result.deep_questions ?? []
+    const causalLoopDiagram = result.causal_loop_diagram ?? { nodes: [], edges: [] }
+    const leveragePoints = result.leverage_points ?? []
+    const actionPlan = result.action_plan ?? []
+
     // 1) 시스템 다이내믹스 분석 upsert
     const { error: upsertAnalysisError } = await supabase.from('system_dynamics_analyses').upsert(
       {
         assessment_id: assessmentId,
         problem_statement: result.problem_statement,
-        key_variables: result.key_variables,
-        causal_relationships: result.causal_relationships,
-        reinforcing_loops: result.reinforcing_loops,
-        balancing_loops: result.balancing_loops,
-        system_archetype_candidates: result.system_archetype_candidates,
-        leverage_points: result.leverage_points_summary,
+        key_variables: keyVariables,
+        causal_relationships: causalRelationships,
+        reinforcing_loops: reinforcingLoops,
+        balancing_loops: balancingLoops,
+        system_archetype_candidates: systemArchetypes,
+        leverage_points: leveragePointsSummary,
         management_implications: result.management_implications,
         status: 'completed',
       },
@@ -390,9 +413,9 @@ Deno.serve(async (req) => {
 
     // 2) 심층질문 재생성
     await supabase.from('deep_questions').delete().eq('assessment_id', assessmentId)
-    if (result.deep_questions.length > 0) {
+    if (deepQuestions.length > 0) {
       const { error } = await supabase.from('deep_questions').insert(
-        result.deep_questions.map((q, i) => ({
+        deepQuestions.map((q, i) => ({
           assessment_id: assessmentId,
           question_text: q.question_text,
           purpose: q.purpose,
@@ -405,12 +428,12 @@ Deno.serve(async (req) => {
 
     // 3) 인과순환지도 upsert (node id 슬러그 정규화)
     const nodeIdMap = new Map<string, string>()
-    const nodes = (result.causal_loop_diagram.nodes ?? []).map((n, i) => {
+    const nodes = (causalLoopDiagram.nodes ?? []).map((n, i) => {
       const slug = slugify(n.id || n.label, i)
       nodeIdMap.set(n.id, slug)
       return { id: slug, label: n.label, category_code: n.category_code }
     })
-    const edges = (result.causal_loop_diagram.edges ?? []).map((e: any) => ({
+    const edges = (causalLoopDiagram.edges ?? []).map((e: any) => ({
       source: nodeIdMap.get(e.source) ?? slugify(e.source, 0),
       target: nodeIdMap.get(e.target) ?? slugify(e.target, 0),
       polarity: e.polarity,
@@ -422,8 +445,8 @@ Deno.serve(async (req) => {
         assessment_id: assessmentId,
         nodes,
         edges,
-        reinforcing_loops: result.reinforcing_loops,
-        balancing_loops: result.balancing_loops,
+        reinforcing_loops: reinforcingLoops,
+        balancing_loops: balancingLoops,
       },
       { onConflict: 'assessment_id' },
     )
@@ -431,9 +454,9 @@ Deno.serve(async (req) => {
 
     // 4) 레버리지 포인트 재생성
     await supabase.from('leverage_points').delete().eq('assessment_id', assessmentId)
-    if (result.leverage_points.length > 0) {
+    if (leveragePoints.length > 0) {
       const { error } = await supabase.from('leverage_points').insert(
-        result.leverage_points.map((lp, i) => ({
+        leveragePoints.map((lp, i) => ({
           assessment_id: assessmentId,
           leverage_point: lp.leverage_point,
           related_problem: lp.related_problem,
@@ -450,10 +473,10 @@ Deno.serve(async (req) => {
 
     // 5) 90일 실행계획 재생성
     await supabase.from('action_plans').delete().eq('assessment_id', assessmentId)
-    if (result.action_plan.length > 0) {
+    if (actionPlan.length > 0) {
       const startDate = new Date()
       const { error } = await supabase.from('action_plans').insert(
-        result.action_plan.map((a, i) => {
+        actionPlan.map((a, i) => {
           const dueDate = new Date(startDate)
           dueDate.setDate(dueDate.getDate() + (Number(a.due_day_offset) || 30))
           return {
