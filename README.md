@@ -1,4 +1,4 @@
-# D-Biz Doctor
+# SD-Biz Doctor
 
 시스템 다이내믹스 기반 AI 경영진단 웹앱 (MVP)
 

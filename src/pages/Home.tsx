@@ -23,7 +23,7 @@ export function Home() {
           System Dynamics-Based AI Diagnosis
         </p>
         <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-          D-Biz Doctor 중소기업 경영진단
+          SD-Biz Doctor 중소기업 경영진단
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm text-slate-300 sm:text-base">
           9개 진단영역, 27개 문항으로 경영건강도를 진단하고 시스템 다이내믹스 분석을 통해

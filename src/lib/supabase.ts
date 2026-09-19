@@ -9,7 +9,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    '[D-Biz Doctor] Supabase 환경변수가 설정되지 않았습니다. .env.example을 참고하여 .env 파일을 생성하세요.',
+    '[SD-Biz Doctor] Supabase 환경변수가 설정되지 않았습니다. .env.example을 참고하여 .env 파일을 생성하세요.',
   )
 }
 

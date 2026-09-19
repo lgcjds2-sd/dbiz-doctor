@@ -1,4 +1,4 @@
--- D-Biz Doctor 데이터베이스 스키마
+-- SD-Biz Doctor 데이터베이스 스키마
 -- Supabase SQL Editor에서 순서대로 실행하세요: schema.sql -> seed.sql
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";

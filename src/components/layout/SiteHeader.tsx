@@ -16,7 +16,7 @@ export function SiteHeader() {
             D
           </span>
           <span className="text-sm font-semibold tracking-wide text-white">
-            D-Biz Doctor
+            SD-Biz Doctor
             <span className="ml-2 hidden text-xs font-normal text-slate-400 sm:inline">
               AI 경영진단 시스템
             </span>

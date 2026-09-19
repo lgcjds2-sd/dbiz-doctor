@@ -1,4 +1,4 @@
--- D-Biz Doctor Seed Data
+-- SD-Biz Doctor Seed Data
 -- schema.sql 실행 후 이 파일을 실행하세요.
 
 -- ============================================================
