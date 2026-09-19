@@ -114,6 +114,23 @@ export interface FeedbackLoop {
   description?: string
 }
 
+export interface CategoryReport {
+  category_code: string
+  narrative: string
+}
+
+export interface ProblemStructurePart {
+  title: string
+  related_categories: string[]
+  narrative: string
+}
+
+export interface ProblemStructure {
+  overview: string
+  parts: ProblemStructurePart[]
+  synthesis: string
+}
+
 export interface SystemDynamicsAnalysis {
   id: string
   assessment_id: string
@@ -125,6 +142,8 @@ export interface SystemDynamicsAnalysis {
   system_archetype_candidates: string[]
   leverage_points: string[]
   management_implications: string | null
+  category_reports: CategoryReport[]
+  problem_structure: ProblemStructure | null
   status: AnalysisStatus
   created_at: string
 }
@@ -179,6 +198,8 @@ export interface LeveragePoint {
   time_to_effect: string | null
   priority_score: number | null
   recommended_action: string | null
+  related_categories: string[]
+  supplementary_explanation: string | null
   display_order: number | null
   created_at: string
 }
@@ -191,6 +212,7 @@ export interface ActionPlan {
   leverage_point_id: string | null
   phase: ActionPhase
   action: string
+  context: string | null
   owner: string | null
   kpi: string | null
   target: string | null

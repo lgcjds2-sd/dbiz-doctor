@@ -1,13 +1,14 @@
 // Supabase Edge Function: analyze-system-dynamics
 //
-// STEP 5~9를 한 번의 Claude 호출로 생성한다.
-//   5. 시스템 다이내믹스 분석 (problem_statement, key_variables, causal_relationships,
+// STEP 5~9를 한 번의 Claude 호출로 생성한다 (맥킨지 스타일 경영진단 보고서 수준).
+//   5. 시스템 다이내믹스 분석 (problem_statement, category_reports[9개 영역 전체],
+//      problem_structure[개요/파트별 분석/종합의견], key_variables, causal_relationships,
 //      reinforcing/balancing_loops, system_archetype_candidates, leverage_points 요약,
 //      management_implications)
 //   6. AI 심층질문 10~15개
 //   7. 인과순환지도 (nodes/edges, R1·R2/B1·B2 루프)
-//   8. 레버리지 포인트 3~5개 (Impact x Feasibility 매트릭스용 필드 포함)
-//   9. 90일 실행계획 (0-30 / 31-60 / 61-90)
+//   8. 레버리지 포인트 3~5개 (진단영역 연결 + 보충설명 + Impact x Feasibility 매트릭스 필드)
+//   9. 90일 실행계획 (0-30 / 31-60 / 61-90, 각 과제에 맥락 설명 포함)
 //
 // 배포: supabase functions deploy analyze-system-dynamics
 // 시크릿: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
@@ -30,7 +31,56 @@ const TOOL_SCHEMA = {
   input_schema: {
     type: 'object',
     properties: {
-      problem_statement: { type: 'string', description: '핵심 문제를 한 단락으로 정의' },
+      problem_statement: {
+        type: 'string',
+        description: '보고서 서두에 실릴 핵심 문제 한 줄 요약(1~2문장, 헤드라인 성격)',
+      },
+      category_reports: {
+        type: 'array',
+        description:
+          '9개 진단영역(ST,CM,MS,PS,OP,FI,HR,LE,DX) 전체에 대해 반드시 하나씩, 총 9개 작성. 취약영역(하위 3개)은 250~350자로 원인·근거·시사점을 포함해 깊이 있게, 나머지 6개는 120~180자로 현재 수준에 대한 평가와 근거를 서술.',
+        items: {
+          type: 'object',
+          properties: {
+            category_code: { type: 'string', enum: ['ST', 'CM', 'MS', 'PS', 'OP', 'FI', 'HR', 'LE', 'DX'] },
+            narrative: { type: 'string' },
+          },
+          required: ['category_code', 'narrative'],
+        },
+      },
+      problem_structure: {
+        type: 'object',
+        description:
+          '문제구조 분석을 서술형 한 덩어리가 아니라 파트로 나누어 작성. 맥킨지 보고서 스타일로 구조화할 것.',
+        properties: {
+          overview: {
+            type: 'string',
+            description: '전체 문제구조를 개관하는 도입부, 150~250자',
+          },
+          parts: {
+            type: 'array',
+            description: '취약영역/핵심 이슈별로 3~5개 파트로 분리. 각 파트는 독립된 소제목을 가진 섹션.',
+            items: {
+              type: 'object',
+              properties: {
+                title: { type: 'string', description: '예: "마케팅·영업 구조의 매출-수익성 역설"' },
+                related_categories: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: '이 파트와 관련된 진단영역 코드 1~3개',
+                },
+                narrative: { type: 'string', description: '250~400자, 데이터 근거(점수, 응답)를 인용' },
+              },
+              required: ['title', 'related_categories', 'narrative'],
+            },
+          },
+          synthesis: {
+            type: 'string',
+            description: '모든 파트를 종합하는 통합적 분석 의견, 200~300자. 근본 원인과 개선 방향을 제시.',
+          },
+        },
+        required: ['overview', 'parts', 'synthesis'],
+      },
       key_variables: {
         type: 'array',
         items: {
@@ -148,6 +198,16 @@ const TOOL_SCHEMA = {
             time_to_effect: { type: 'string' },
             priority_score: { type: 'number', minimum: 0, maximum: 100 },
             recommended_action: { type: 'string' },
+            related_categories: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '이 레버리지 포인트가 해결하는 진단영역 코드 1~3개 (problem_structure.parts와 연결)',
+            },
+            supplementary_explanation: {
+              type: 'string',
+              description:
+                '150~250자. 이 레버리지 포인트가 problem_structure의 어느 파트/어느 진단영역 문제를 어떤 메커니즘으로 해결하는지 구체적으로 연결해 설명',
+            },
           },
           required: [
             'leverage_point',
@@ -157,29 +217,38 @@ const TOOL_SCHEMA = {
             'time_to_effect',
             'priority_score',
             'recommended_action',
+            'related_categories',
+            'supplementary_explanation',
           ],
         },
       },
       action_plan: {
         type: 'array',
-        description: '0-30/31-60/61-90 단계별 실행과제, 단계당 3~6개',
+        description: '0-30/31-60/61-90 단계별 실행과제, 단계당 3~6개. 앞서 도출한 leverage_points에서 파생시킬 것.',
         items: {
           type: 'object',
           properties: {
             phase: { type: 'string', enum: ['0-30', '31-60', '61-90'] },
-            action: { type: 'string' },
+            action: { type: 'string', description: '구체적 실행과제명' },
+            context: {
+              type: 'string',
+              description:
+                '80~150자. 왜 이 시점에 이 과제를 하는지, 어떤 레버리지 포인트/진단결과와 연결되는지, 이전 단계 과제와 어떻게 이어지는지 서술',
+            },
             owner: { type: 'string' },
             kpi: { type: 'string' },
             target: { type: 'string' },
             due_day_offset: { type: 'number', description: '계획 시작일로부터 경과 일수(1~90)' },
             expected_effect: { type: 'string' },
           },
-          required: ['phase', 'action', 'owner', 'kpi', 'target', 'due_day_offset', 'expected_effect'],
+          required: ['phase', 'action', 'context', 'owner', 'kpi', 'target', 'due_day_offset', 'expected_effect'],
         },
       },
     },
     required: [
       'problem_statement',
+      'category_reports',
+      'problem_structure',
       'key_variables',
       'causal_relationships',
       'reinforcing_loops',
@@ -196,21 +265,38 @@ const TOOL_SCHEMA = {
 }
 
 function buildPrompt(context: Record<string, unknown>) {
-  return `당신은 시스템 다이내믹스 방법론에 정통한 경영컨설턴트입니다.
-아래는 한 중소기업의 경영진단(Quick Diagnosis) 데이터입니다. 이 데이터를 근거로
-submit_diagnosis_analysis 도구를 호출하여 구조화된 분석 결과를 제출하세요.
+  return `당신은 맥킨지(McKinsey) 스타일의 경영컨설팅 보고서를 작성하는, 시스템 다이내믹스
+방법론에 정통한 시니어 파트너입니다. 아래는 한 중소기업의 경영진단(Quick Diagnosis)
+데이터입니다. 이 데이터를 근거로 submit_diagnosis_analysis 도구를 호출하여, 그대로
+경영진 보고서에 실릴 수 있는 수준의 깊이 있고 근거 기반의 결과를 제출하세요.
 
-요구사항:
-- 문제구조는 반드시 응답 데이터(특히 취약영역 TOP3)에 근거해야 하며 추측성 일반론을 피할 것.
-- causal_relationships의 source/target은 key_variables의 name과 일치시킬 것.
+문체·품질 요구사항 (가장 중요):
+- 절대 일반론이나 뻔한 조언을 쓰지 말 것. 반드시 survey_responses의 구체적 진단 차원
+  (diagnosis_dimension)과 점수, all_category_scores의 실제 순위/점수를 인용하며 서술할 것.
+- 문장은 컨설팅 보고서체("~로 나타난다", "~로 판단된다", "~가 요구된다")로 작성하고,
+  근거 → 해석 → 시사점의 3단 논리 구조를 각 문단에 담을 것.
+- 지정된 글자 수 범위를 최대한 채울 것 (짧게 쓰지 말 것). 보고서는 인쇄 시 최소 5페이지
+  분량이 되어야 하므로 각 서술 항목의 분량 기준을 반드시 준수할 것.
+
+항목별 요구사항:
+- category_reports: 9개 진단영역 전부 빠짐없이 작성 (ST, CM, MS, PS, OP, FI, HR, LE, DX).
+  취약영역(하위 3개)은 250~350자로 원인·근거·시사점 포함, 나머지 6개는 120~180자.
+- problem_structure: overview(150~250자) → parts(3~5개, 각 250~400자, 취약영역/핵심이슈별로
+  분리하고 반드시 서로 다른 related_categories를 가질 것) → synthesis(200~300자, 모든
+  파트를 하나의 인과구조로 통합하는 결론적 의견).
+- key_variables/causal_relationships: causal_relationships의 source/target은 key_variables의
+  name과 정확히 일치시킬 것.
 - causal_loop_diagram.nodes.id는 causal_relationships에서 사용한 변수명을 슬러그화한 값으로,
   edges.source/target은 그 node id를 참조할 것.
 - reinforcing_loops/balancing_loops는 causal_loop_diagram의 edges로 실제로 구성 가능한
   순환 구조여야 함.
 - deep_questions는 10~15개, 6가지 목적(시간적 변화, 인과관계 검증, 피드백 루프, 시간지연,
   정책 부작용, 시스템 원형)을 고르게 포함할 것.
-- leverage_points는 3~5개, action_plan은 leverage_points에서 도출하여 0-30/31-60/61-90
-  단계에 걸쳐 배분할 것.
+- leverage_points는 3~5개. 각각 related_categories로 problem_structure.parts와 명시적으로
+  연결하고, supplementary_explanation(150~250자)에서 그 연결 메커니즘을 설명할 것.
+- action_plan은 leverage_points에서 파생시켜 0-30/31-60/61-90 단계에 배분하고, 각 항목의
+  context(80~150자)에서 왜 이 시점에 이 과제가 필요한지, 어느 레버리지 포인트와
+  연결되는지 서술할 것.
 - 모든 텍스트는 한국어로 작성할 것.
 
 [진단 데이터]
@@ -328,7 +414,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
-        max_tokens: 16000,
+        max_tokens: 24000,
         tools: [TOOL_SCHEMA],
         tool_choice: { type: 'tool', name: 'submit_diagnosis_analysis' },
         messages: [{ role: 'user', content: buildPrompt(context) }],
@@ -364,6 +450,12 @@ Deno.serve(async (req) => {
 
     const result = toolUse.input as {
       problem_statement: string
+      category_reports: { category_code: string; narrative: string }[]
+      problem_structure: {
+        overview: string
+        parts: { title: string; related_categories: string[]; narrative: string }[]
+        synthesis: string
+      }
       key_variables: { name: string; description: string; category_code?: string }[]
       causal_relationships: unknown[]
       reinforcing_loops: unknown[]
@@ -376,12 +468,14 @@ Deno.serve(async (req) => {
         nodes: { id: string; label: string; category_code?: string }[]
         edges: unknown[]
       }
-      leverage_points: Record<string, unknown>[]
+      leverage_points: (Record<string, unknown> & { related_categories?: string[] })[]
       action_plan: (Record<string, unknown> & { phase: string; due_day_offset: number })[]
     }
 
     // AI가 일부 필드를 누락하거나(토큰 한도, 스키마 해석 차이 등) 응답해도
     // 파이프라인 전체가 실패하지 않도록 모든 배열/객체 필드에 방어적 기본값을 둔다.
+    const categoryReports = result.category_reports ?? []
+    const problemStructure = result.problem_structure ?? { overview: '', parts: [], synthesis: '' }
     const keyVariables = result.key_variables ?? []
     const causalRelationships = result.causal_relationships ?? []
     const reinforcingLoops = result.reinforcing_loops ?? []
@@ -405,6 +499,8 @@ Deno.serve(async (req) => {
         system_archetype_candidates: systemArchetypes,
         leverage_points: leveragePointsSummary,
         management_implications: result.management_implications,
+        category_reports: categoryReports,
+        problem_structure: problemStructure,
         status: 'completed',
       },
       { onConflict: 'assessment_id' },
@@ -465,6 +561,8 @@ Deno.serve(async (req) => {
           time_to_effect: lp.time_to_effect,
           priority_score: lp.priority_score,
           recommended_action: lp.recommended_action,
+          related_categories: lp.related_categories ?? [],
+          supplementary_explanation: lp.supplementary_explanation,
           display_order: i + 1,
         })),
       )
@@ -484,6 +582,7 @@ Deno.serve(async (req) => {
             leverage_point_id: null,
             phase: a.phase,
             action: a.action,
+            context: a.context,
             owner: a.owner,
             kpi: a.kpi,
             target: a.target,

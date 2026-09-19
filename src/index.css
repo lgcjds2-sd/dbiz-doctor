@@ -32,4 +32,13 @@ body {
   .no-print {
     display: none !important;
   }
+  .print-break-before {
+    break-before: page;
+  }
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+  body {
+    background: white !important;
+  }
 }

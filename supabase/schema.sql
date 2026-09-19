@@ -118,6 +118,10 @@ CREATE TABLE IF NOT EXISTS system_dynamics_analyses (
     system_archetype_candidates JSONB DEFAULT '[]'::JSONB,
     leverage_points JSONB DEFAULT '[]'::JSONB,
     management_implications TEXT,
+    -- 9개 영역 각각에 대한 진단 코멘트: [{category_code, narrative}]
+    category_reports JSONB DEFAULT '[]'::JSONB,
+    -- 구조화된 문제구조 분석: {overview, parts:[{title, related_categories, narrative}], synthesis}
+    problem_structure JSONB DEFAULT '{}'::JSONB,
     status TEXT DEFAULT 'pending',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (assessment_id)
@@ -164,6 +168,9 @@ CREATE TABLE IF NOT EXISTS leverage_points (
     time_to_effect TEXT,
     priority_score NUMERIC(5,2),
     recommended_action TEXT,
+    -- 이 레버리지 포인트와 관련된 9개 진단영역 코드 배열, 예: ["MS","OP"]
+    related_categories JSONB DEFAULT '[]'::JSONB,
+    supplementary_explanation TEXT,
     display_order INTEGER,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -177,6 +184,8 @@ CREATE TABLE IF NOT EXISTS action_plans (
     leverage_point_id UUID REFERENCES leverage_points(id),
     phase TEXT CHECK (phase IN ('0-30', '31-60', '61-90')),
     action TEXT NOT NULL,
+    -- 이 과제를 왜/어떤 맥락에서 수행하는지에 대한 서술형 설명
+    context TEXT,
     owner TEXT,
     kpi TEXT,
     target TEXT,
