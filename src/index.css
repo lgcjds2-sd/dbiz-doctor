@@ -29,16 +29,50 @@ body {
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 16mm 14mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #16294a !important;
+  }
+
+  /* 브라우저 기본 인쇄 동작은 배경색/색상을 생략하므로, 강조 배경·배지·구분선이
+     그대로 인쇄되도록 강제한다. 이게 없으면 취약영역 강조색, 헤드라인 박스,
+     심각도 배지 등이 전부 흰 배경으로 인쇄되어 영역 구분이 사라진다. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
   .no-print {
     display: none !important;
   }
+
   .print-break-before {
     break-before: page;
   }
+
   .print-avoid-break {
     break-inside: avoid;
   }
-  body {
-    background: white !important;
+
+  /* 화면용 카드 여백/그림자/둥근모서리/최대너비를 인쇄본에서는 제거하고,
+     @page 여백만으로 A4 페이지 여백을 통일한다 (이중 여백 방지). */
+  .print-page {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-page-inner {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
   }
 }

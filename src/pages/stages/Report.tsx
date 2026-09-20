@@ -83,14 +83,14 @@ export function Report() {
   const categoryNameByCode = new Map(results.map((r) => [r.category.code, r.category]))
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+    <div className="print-page mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <div className="no-print mb-6 flex justify-end">
         <Button onClick={() => window.print()}>인쇄 / PDF 저장</Button>
       </div>
 
-      <Card className="!p-10 sm:!p-14">
+      <Card className="print-page-inner !p-10 sm:!p-14">
         {/* 표지 영역 */}
-        <div className="border-b-4 border-navy-900 pb-8">
+        <div className="print-avoid-break border-b-4 border-navy-900 pb-8">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold-600">
             Executive Diagnosis Report
           </p>
@@ -110,7 +110,7 @@ export function Report() {
         {/* I. 종합 진단 요약 */}
         <section className="border-b border-slate-200 py-10">
           <SectionTitle roman="I" title="종합 진단 요약" subtitle="Executive Summary" />
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
+          <div className="print-avoid-break grid grid-cols-1 gap-8 sm:grid-cols-3">
             <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50 py-6 sm:col-span-1">
               <p className="text-xs font-semibold text-slate-400">종합 경영건강도</p>
               <p className="mt-2 text-5xl font-bold text-navy-900">{overallScore.toFixed(1)}</p>
@@ -127,7 +127,7 @@ export function Report() {
           </div>
 
           {analysis?.problem_statement && (
-            <div className="mt-6 rounded-lg border-l-4 border-gold-500 bg-navy-950 px-6 py-5">
+            <div className="print-avoid-break mt-6 rounded-lg border-l-4 border-gold-500 bg-navy-950 px-6 py-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-gold-500">
                 Headline
               </p>
@@ -142,7 +142,9 @@ export function Report() {
         <section className="print-break-before border-b border-slate-200 py-10">
           <SectionTitle roman="II" title="9개 영역 진단 결과" subtitle="Diagnostic Radar & Category Assessment" />
 
-          <CategoryRadarChart results={results} />
+          <div className="print-avoid-break">
+            <CategoryRadarChart results={results} />
+          </div>
 
           <div className="mt-8 space-y-3">
             {[...results]
@@ -212,7 +214,7 @@ export function Report() {
             </div>
 
             {analysis.problem_structure.synthesis && (
-              <div className="mt-8 rounded-lg bg-navy-50 px-6 py-5">
+              <div className="print-avoid-break mt-8 rounded-lg bg-navy-50 px-6 py-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-navy-500">
                   종합 분석 의견
                 </p>
