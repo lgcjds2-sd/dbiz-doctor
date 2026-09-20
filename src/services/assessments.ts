@@ -33,6 +33,19 @@ export async function getAssessmentWithCompany(
   return data as unknown as (Assessment & { company: Company }) | null
 }
 
+export async function listCompletedAssessmentsForCompany(
+  companyId: string,
+): Promise<Assessment[]> {
+  const { data, error } = await supabase
+    .from('assessments')
+    .select('*')
+    .eq('company_id', companyId)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as Assessment[]
+}
+
 export async function listAssessments(): Promise<(Assessment & { company: Company })[]> {
   const { data, error } = await supabase
     .from('assessments')

@@ -8,6 +8,7 @@ import { Home } from '@/pages/Home'
 import { Login } from '@/pages/Login'
 import { Signup } from '@/pages/Signup'
 import { CompanyRegister } from '@/pages/CompanyRegister'
+import { CompanyHistory } from '@/pages/CompanyHistory'
 import { Diagnosis } from '@/pages/Diagnosis'
 import { ResultsDashboard } from '@/pages/ResultsDashboard'
 import { AssessmentList } from '@/pages/AssessmentList'
@@ -49,6 +50,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AssessmentList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/companies/:companyId/history"
+            element={
+              <ProtectedRoute>
+                <CompanyHistory />
               </ProtectedRoute>
             }
           />

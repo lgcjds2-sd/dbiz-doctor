@@ -38,9 +38,17 @@ export function AdminCompanies() {
                     {company.industry} · {company.revenue_range} · {company.employee_range}
                   </p>
                 </div>
-                <span className="text-xs text-slate-400">
-                  등록일 {new Date(company.created_at).toLocaleDateString('ko-KR')}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-400">
+                    등록일 {new Date(company.created_at).toLocaleDateString('ko-KR')}
+                  </span>
+                  <Link
+                    to={`/companies/${company.id}/history`}
+                    className="text-xs font-medium text-navy-700 hover:underline"
+                  >
+                    추이 보기
+                  </Link>
+                </div>
               </div>
               {companyAssessments.length === 0 ? (
                 <p className="text-xs text-slate-400">진단 이력이 없습니다.</p>

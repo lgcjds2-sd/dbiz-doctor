@@ -94,12 +94,20 @@ export function ResultsDashboard() {
             {new Date(assessment.completed_at ?? assessment.created_at).toLocaleDateString('ko-KR')}
           </p>
         </div>
-        <Link
-          to={`/assessments/${assessmentId}/report`}
-          className="rounded-md border border-navy-800 px-4 py-2.5 text-sm font-medium text-navy-800 hover:bg-navy-50"
-        >
-          경영진 보고서 보기
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to={`/companies/${assessment.company.id}/history`}
+            className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            진단 이력 비교
+          </Link>
+          <Link
+            to={`/assessments/${assessmentId}/report`}
+            className="rounded-md border border-navy-800 px-4 py-2.5 text-sm font-medium text-navy-800 hover:bg-navy-50"
+          >
+            경영진 보고서 보기
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
