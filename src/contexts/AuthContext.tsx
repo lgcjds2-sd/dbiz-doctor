@@ -1,13 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
-
-interface Profile {
-  id: string
-  email: string | null
-  is_admin: boolean
-  created_at: string
-}
+import type { Profile } from '@/types/database'
 
 interface AuthContextValue {
   session: Session | null
@@ -21,6 +15,7 @@ interface AuthContextValue {
   ) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -72,6 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  async function refreshProfile() {
+    if (session?.user) await loadProfile(session.user.id)
+  }
+
   const value: AuthContextValue = {
     session,
     user: session?.user ?? null,
@@ -81,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signIn,
     signOut,
+    refreshProfile,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

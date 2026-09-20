@@ -24,6 +24,7 @@ import { AdminResults } from '@/pages/admin/AdminResults'
 import { AdminReports } from '@/pages/admin/AdminReports'
 import { AdminAIAnalysis } from '@/pages/admin/AdminAIAnalysis'
 import { AdminCausalRelationships } from '@/pages/admin/AdminCausalRelationships'
+import { AdminConsultantProfile } from '@/pages/admin/AdminConsultantProfile'
 
 function App() {
   return (
@@ -124,6 +125,7 @@ function App() {
             <Route path="reports" element={<AdminReports />} />
             <Route path="ai-analysis" element={<AdminAIAnalysis />} />
             <Route path="causal-relationships" element={<AdminCausalRelationships />} />
+            <Route path="consultant-profile" element={<AdminConsultantProfile />} />
           </Route>
         </Routes>
       </div>

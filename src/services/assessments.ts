@@ -65,6 +65,14 @@ export async function saveResponse(
   if (error) throw error
 }
 
+export async function updateConsultantOpinion(assessmentId: string, opinion: string): Promise<void> {
+  const { error } = await supabase
+    .from('assessments')
+    .update({ consultant_opinion: opinion })
+    .eq('id', assessmentId)
+  if (error) throw error
+}
+
 export async function completeAssessment(
   assessmentId: string,
   overallScore: number,

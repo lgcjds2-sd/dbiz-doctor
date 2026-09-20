@@ -23,6 +23,10 @@ const groups = [
       { to: '/admin/causal-relationships', label: '인과관계 데이터 관리' },
     ],
   },
+  {
+    title: '계정',
+    items: [{ to: '/admin/consultant-profile', label: '경영지도사 정보 설정' }],
+  },
 ]
 
 export function AdminLayout() {

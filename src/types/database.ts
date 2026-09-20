@@ -13,6 +13,9 @@ export interface Profile {
   id: string
   email: string | null
   is_admin: boolean
+  consultant_name: string | null
+  license_number: string | null
+  seal_image: string | null
   created_at: string
 }
 
@@ -40,6 +43,7 @@ export interface Assessment {
   assessment_type: AssessmentType
   status: AssessmentStatus
   overall_score: number | null
+  consultant_opinion: string | null
   created_at: string
   completed_at: string | null
 }

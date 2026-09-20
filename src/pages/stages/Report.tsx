@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { TextArea } from '@/components/ui/Field'
 import { SeverityBadge } from '@/components/ui/SeverityBadge'
 import { CategoryRadarChart } from '@/components/charts/CategoryRadarChart'
-import { getAssessmentWithCompany } from '@/services/assessments'
+import { useAuth } from '@/contexts/AuthContext'
+import { getAssessmentWithCompany, updateConsultantOpinion } from '@/services/assessments'
 import { buildExecutiveMessage, getDiagnosisResults } from '@/services/diagnosis'
+import { getConsultantProfile } from '@/services/profile'
 import {
   getSystemDynamicsAnalysis,
   listActionPlans,
@@ -19,6 +22,7 @@ import type {
   Company,
   DiagnosisResult,
   LeveragePoint,
+  Profile,
   SystemDynamicsAnalysis,
 } from '@/types/database'
 
@@ -42,14 +46,103 @@ function SectionTitle({ roman, title, subtitle }: { roman: string; title: string
   )
 }
 
+function ConsultantOpinionSection({
+  roman,
+  assessmentId,
+  opinion,
+  consultant,
+  isAdmin,
+  onSaved,
+}: {
+  roman: string
+  assessmentId: string
+  opinion: string | null
+  consultant: Profile | null
+  isAdmin: boolean
+  onSaved: (opinion: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(opinion ?? '')
+  const [saving, setSaving] = useState(false)
+
+  const hasContent = !!opinion || !!consultant?.consultant_name
+
+  if (!hasContent && !isAdmin) return null
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await updateConsultantOpinion(assessmentId, draft)
+      onSaved(draft)
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="print-break-before py-10">
+      <SectionTitle roman={roman} title="경영지도사 소견" subtitle="Certified Management Consultant's Opinion" />
+
+      {isAdmin && !editing ? (
+        <div className="no-print mb-4 flex justify-end">
+          <Button variant="secondary" onClick={() => { setDraft(opinion ?? ''); setEditing(true) }}>
+            {opinion ? '소견 수정' : '소견 작성'}
+          </Button>
+        </div>
+      ) : null}
+
+      {editing ? (
+        <div className="no-print space-y-3">
+          <TextArea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={5}
+            placeholder="이 기업의 진단 결과에 대한 경영지도사 소견을 작성해 주세요."
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setEditing(false)} disabled={saving}>
+              취소
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? '저장 중...' : '저장'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        opinion && (
+          <p className="print-avoid-break whitespace-pre-wrap text-[15px] leading-8 text-navy-800">{opinion}</p>
+        )
+      )}
+
+      {consultant?.consultant_name && (
+        <div className="print-avoid-break mt-10 flex items-end justify-end gap-4">
+          <div className="text-right">
+            <p className="text-xs text-slate-400">담당 경영지도사</p>
+            <p className="text-base font-bold text-navy-950">{consultant.consultant_name}</p>
+            {consultant.license_number && (
+              <p className="text-xs text-slate-500">등록번호: {consultant.license_number}</p>
+            )}
+          </div>
+          {consultant.seal_image && (
+            <img src={consultant.seal_image} alt="직인" className="h-16 w-16 object-contain" />
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export function Report() {
   const { assessmentId } = useParams<{ assessmentId: string }>()
+  const { isAdmin } = useAuth()
   const [loading, setLoading] = useState(true)
   const [assessment, setAssessment] = useState<(Assessment & { company: Company }) | null>(null)
   const [results, setResults] = useState<ResultRow[]>([])
   const [analysis, setAnalysis] = useState<SystemDynamicsAnalysis | null>(null)
   const [leveragePoints, setLeveragePoints] = useState<LeveragePoint[]>([])
   const [actionPlans, setActionPlans] = useState<ActionPlan[]>([])
+  const [consultant, setConsultant] = useState<Profile | null>(null)
 
   useEffect(() => {
     if (!assessmentId) return
@@ -59,13 +152,15 @@ export function Report() {
       getSystemDynamicsAnalysis(assessmentId),
       listLeveragePoints(assessmentId),
       listActionPlans(assessmentId),
+      getConsultantProfile(),
     ])
-      .then(([a, r, sda, lp, ap]) => {
+      .then(([a, r, sda, lp, ap, consultantProfile]) => {
         setAssessment(a)
         setResults(r)
         setAnalysis(sda)
         setLeveragePoints(lp)
         setActionPlans(ap)
+        setConsultant(consultantProfile)
       })
       .finally(() => setLoading(false))
   }, [assessmentId])
@@ -293,7 +388,7 @@ export function Report() {
 
         {/* V. 90일 실행계획 */}
         {actionPlans.length > 0 && (
-          <section className="print-break-before py-10">
+          <section className="print-break-before border-b border-slate-200 py-10">
             <SectionTitle roman="V" title="90일 실행계획" subtitle="90-Day Execution Roadmap" />
             <div className="space-y-8">
               {(['0-30', '31-60', '61-90'] as ActionPhase[]).map((phase) => (
@@ -345,6 +440,16 @@ export function Report() {
             'AI 분석 실행'을 누르면 이 보고서에 자동으로 추가됩니다.
           </div>
         )}
+
+        {/* VI. 경영지도사 소견 */}
+        <ConsultantOpinionSection
+          roman="VI"
+          assessmentId={assessmentId!}
+          opinion={assessment.consultant_opinion}
+          consultant={consultant}
+          isAdmin={isAdmin}
+          onSaved={(opinion) => setAssessment((prev) => (prev ? { ...prev, consultant_opinion: opinion } : prev))}
+        />
       </Card>
     </div>
   )

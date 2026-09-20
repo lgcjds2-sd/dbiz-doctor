@@ -9,6 +9,11 @@ const cards = [
   { to: '/admin/reports', title: '진단보고서 조회', desc: '경영진 보고서를 열람/인쇄합니다.' },
   { to: '/admin/ai-analysis', title: 'AI 분석결과 조회', desc: '시스템 다이내믹스 분석 결과(다음 단계)를 조회합니다.' },
   { to: '/admin/causal-relationships', title: '인과관계 데이터 관리', desc: '업종별 인과관계 지식베이스를 관리합니다.' },
+  {
+    to: '/admin/consultant-profile',
+    title: '경영지도사 정보 설정',
+    desc: '보고서에 표시될 이름·등록번호·직인을 등록합니다.',
+  },
 ]
 
 export function AdminOverview() {
