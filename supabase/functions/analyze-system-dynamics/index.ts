@@ -23,6 +23,7 @@
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY는 Supabase가 자동으로 주입한다.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { verifyOwnership } from '../_shared/verifyOwnership.ts'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -298,6 +299,14 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, serviceRoleKey)
+
+    const ownership = await verifyOwnership(req, supabase, assessmentId)
+    if (!ownership.ok) {
+      return new Response(JSON.stringify({ error: ownership.error }), {
+        status: ownership.status,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
 
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')

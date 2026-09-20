@@ -4,7 +4,12 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
 import { StageHeader } from '@/components/stage/StageHeader'
 import { ImpactFeasibilityMatrix } from '@/components/charts/ImpactFeasibilityMatrix'
-import { listLeveragePoints, triggerSystemDynamicsAnalysis } from '@/services/systemDynamics'
+import {
+  ANALYSIS_STAGE_LABELS,
+  listLeveragePoints,
+  triggerSystemDynamicsAnalysis,
+  type AnalysisStage,
+} from '@/services/systemDynamics'
 import { useParams } from 'react-router-dom'
 import type { LeveragePoint } from '@/types/database'
 
@@ -12,6 +17,7 @@ export function LeveragePoints() {
   const { assessmentId } = useParams<{ assessmentId: string }>()
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
+  const [stage, setStage] = useState<AnalysisStage | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [points, setPoints] = useState<LeveragePoint[]>([])
 
@@ -30,12 +36,13 @@ export function LeveragePoints() {
     setAnalyzing(true)
     setError(null)
     try {
-      await triggerSystemDynamicsAnalysis(assessmentId)
+      await triggerSystemDynamicsAnalysis(assessmentId, setStage)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'AI 분석 실행 중 오류가 발생했습니다.')
     } finally {
       setAnalyzing(false)
+      setStage(null)
     }
   }
 
@@ -47,6 +54,13 @@ export function LeveragePoints() {
         title="레버리지 포인트"
         description="AI가 추천하는 3~5개의 레버리지 포인트와 Impact × Feasibility 매트릭스를 통해 개선 우선순위를 도출합니다."
       />
+
+      {analyzing && (
+        <p className="no-print mb-6 rounded-md bg-amber-50 px-4 py-3 text-xs text-severity-warning">
+          {stage ? ANALYSIS_STAGE_LABELS[stage] : '생성 중...'} 이 페이지를 벗어나도 서버에서
+          계속 처리되니, 잠시 후 다시 방문하시면 결과를 확인할 수 있습니다.
+        </p>
+      )}
 
       {error && (
         <p className="no-print mb-6 rounded-md bg-red-50 px-4 py-3 text-sm text-severity-critical">
@@ -74,6 +88,7 @@ export function LeveragePoints() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
+                  <th className="px-4 py-3 font-semibold">#</th>
                   <th className="px-4 py-3 font-semibold">레버리지 포인트</th>
                   <th className="px-4 py-3 font-semibold">관련 문제</th>
                   <th className="px-4 py-3 font-semibold">기대효과</th>
@@ -83,8 +98,9 @@ export function LeveragePoints() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {points.map((p) => (
+                {points.map((p, i) => (
                   <tr key={p.id}>
+                    <td className="px-4 py-3 font-semibold text-slate-400">#{i + 1}</td>
                     <td className="px-4 py-3 font-medium text-navy-900">{p.leverage_point}</td>
                     <td className="px-4 py-3 text-slate-500">{p.related_problem}</td>
                     <td className="px-4 py-3 text-slate-500">{p.expected_impact}</td>
@@ -103,7 +119,7 @@ export function LeveragePoints() {
           description="AI 심층질문 화면에서 'AI 분석 실행'을 누르면 leverage_points 테이블에 결과가 저장되고 이 화면에 Impact × Feasibility 매트릭스와 함께 표시됩니다."
           action={
             <Button onClick={handleAnalyze} disabled={analyzing}>
-              {analyzing ? 'AI 분석 실행 중...' : 'AI 분석 실행'}
+              {analyzing ? '생성 중...' : 'AI 분석 실행'}
             </Button>
           }
         />

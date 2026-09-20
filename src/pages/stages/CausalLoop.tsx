@@ -5,13 +5,19 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
 import { StageHeader } from '@/components/stage/StageHeader'
 import { CausalLoopSvg } from '@/components/charts/CausalLoopSvg'
-import { getCausalLoopDiagram, triggerSystemDynamicsAnalysis } from '@/services/systemDynamics'
+import {
+  ANALYSIS_STAGE_LABELS,
+  getCausalLoopDiagram,
+  triggerSystemDynamicsAnalysis,
+  type AnalysisStage,
+} from '@/services/systemDynamics'
 import type { CausalLoopDiagramData } from '@/types/database'
 
 export function CausalLoop() {
   const { assessmentId } = useParams<{ assessmentId: string }>()
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
+  const [stage, setStage] = useState<AnalysisStage | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [diagram, setDiagram] = useState<CausalLoopDiagramData | null>(null)
 
@@ -30,12 +36,13 @@ export function CausalLoop() {
     setAnalyzing(true)
     setError(null)
     try {
-      await triggerSystemDynamicsAnalysis(assessmentId)
+      await triggerSystemDynamicsAnalysis(assessmentId, setStage)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'AI 분석 실행 중 오류가 발생했습니다.')
     } finally {
       setAnalyzing(false)
+      setStage(null)
     }
   }
 
@@ -47,6 +54,13 @@ export function CausalLoop() {
         title="인과순환지도 (Causal Loop Diagram)"
         description="검증된 심층진단 결과를 바탕으로 핵심 변수 간 인과관계, 극성(+/-), 시간지연, 강화루프(R)·균형루프(B)를 시각화합니다."
       />
+
+      {analyzing && (
+        <p className="no-print mb-6 rounded-md bg-amber-50 px-4 py-3 text-xs text-severity-warning">
+          {stage ? ANALYSIS_STAGE_LABELS[stage] : '생성 중...'} 이 페이지를 벗어나도 서버에서
+          계속 처리되니, 잠시 후 다시 방문하시면 결과를 확인할 수 있습니다.
+        </p>
+      )}
 
       {error && (
         <p className="no-print mb-6 rounded-md bg-red-50 px-4 py-3 text-sm text-severity-critical">
@@ -104,7 +118,7 @@ export function CausalLoop() {
           description="AI 심층질문 화면에서 'AI 분석 실행'을 누르면 causal_loop_diagrams 테이블에 노드/엣지/루프 데이터가 저장되고 이 화면에 자동으로 시각화됩니다."
           action={
             <Button onClick={handleAnalyze} disabled={analyzing}>
-              {analyzing ? 'AI 분석 실행 중...' : 'AI 분석 실행'}
+              {analyzing ? '생성 중...' : 'AI 분석 실행'}
             </Button>
           }
         />

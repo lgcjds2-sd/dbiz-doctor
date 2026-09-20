@@ -9,6 +9,7 @@
 // 클라이언트는 analyze-system-dynamics 성공 후 이 함수를 호출한다.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { verifyOwnership } from '../_shared/verifyOwnership.ts'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -144,6 +145,14 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, serviceRoleKey)
+
+    const ownership = await verifyOwnership(req, supabase, assessmentId)
+    if (!ownership.ok) {
+      return new Response(JSON.stringify({ error: ownership.error }), {
+        status: ownership.status,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
 
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')

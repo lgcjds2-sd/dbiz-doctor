@@ -34,6 +34,14 @@ export async function listDeepQuestions(assessmentId: string): Promise<DeepQuest
   return (data ?? []) as DeepQuestion[]
 }
 
+export async function saveDeepQuestionAnswer(questionId: string, answerText: string): Promise<void> {
+  const { error } = await supabase
+    .from('deep_questions')
+    .update({ answer_text: answerText })
+    .eq('id', questionId)
+  if (error) throw error
+}
+
 export async function getCausalLoopDiagram(
   assessmentId: string,
 ): Promise<CausalLoopDiagramData | null> {
@@ -71,6 +79,11 @@ async function invokeAnalysisFunction(name: string, assessmentId: string): Promi
 }
 
 export type AnalysisStage = 'structure' | 'leverage_actions'
+
+export const ANALYSIS_STAGE_LABELS: Record<AnalysisStage, string> = {
+  structure: '1/2 단계: 문제구조 분석 · 심층질문 생성 중... (약 2분 소요)',
+  leverage_actions: '2/2 단계: 레버리지 포인트 · 90일 실행계획 생성 중... (약 1분 소요)',
+}
 
 /**
  * STEP 5~9(시스템 다이내믹스 분석/심층질문/인과순환지도/레버리지 포인트/90일 실행계획)를

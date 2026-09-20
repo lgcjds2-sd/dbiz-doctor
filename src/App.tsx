@@ -1,7 +1,12 @@
 import { Route, Routes } from 'react-router-dom'
+import { AuthProvider } from '@/contexts/AuthContext'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { AdminRoute } from '@/components/auth/AdminRoute'
 import { SiteHeader } from '@/components/layout/SiteHeader'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { Home } from '@/pages/Home'
+import { Login } from '@/pages/Login'
+import { Signup } from '@/pages/Signup'
 import { CompanyRegister } from '@/pages/CompanyRegister'
 import { Diagnosis } from '@/pages/Diagnosis'
 import { ResultsDashboard } from '@/pages/ResultsDashboard'
@@ -22,32 +27,107 @@ import { AdminCausalRelationships } from '@/pages/admin/AdminCausalRelationships
 
 function App() {
   return (
-    <div className="min-h-screen bg-slate-100">
-      <SiteHeader />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/companies/new" element={<CompanyRegister />} />
-        <Route path="/assessments" element={<AssessmentList />} />
-        <Route path="/assessments/:assessmentId/survey" element={<Diagnosis />} />
-        <Route path="/assessments/:assessmentId/results" element={<ResultsDashboard />} />
-        <Route path="/assessments/:assessmentId/deep-dive" element={<DeepDive />} />
-        <Route path="/assessments/:assessmentId/causal-loop" element={<CausalLoop />} />
-        <Route path="/assessments/:assessmentId/leverage-points" element={<LeveragePoints />} />
-        <Route path="/assessments/:assessmentId/action-plan" element={<ActionPlanPage />} />
-        <Route path="/assessments/:assessmentId/report" element={<Report />} />
+    <AuthProvider>
+      <div className="min-h-screen bg-slate-100">
+        <SiteHeader />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
 
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminOverview />} />
-          <Route path="categories" element={<AdminCategories />} />
-          <Route path="questions" element={<AdminQuestions />} />
-          <Route path="companies" element={<AdminCompanies />} />
-          <Route path="results" element={<AdminResults />} />
-          <Route path="reports" element={<AdminReports />} />
-          <Route path="ai-analysis" element={<AdminAIAnalysis />} />
-          <Route path="causal-relationships" element={<AdminCausalRelationships />} />
-        </Route>
-      </Routes>
-    </div>
+          <Route
+            path="/companies/new"
+            element={
+              <ProtectedRoute>
+                <CompanyRegister />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assessments"
+            element={
+              <ProtectedRoute>
+                <AssessmentList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assessments/:assessmentId/survey"
+            element={
+              <ProtectedRoute>
+                <Diagnosis />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assessments/:assessmentId/results"
+            element={
+              <ProtectedRoute>
+                <ResultsDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assessments/:assessmentId/deep-dive"
+            element={
+              <ProtectedRoute>
+                <DeepDive />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assessments/:assessmentId/causal-loop"
+            element={
+              <ProtectedRoute>
+                <CausalLoop />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assessments/:assessmentId/leverage-points"
+            element={
+              <ProtectedRoute>
+                <LeveragePoints />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assessments/:assessmentId/action-plan"
+            element={
+              <ProtectedRoute>
+                <ActionPlanPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assessments/:assessmentId/report"
+            element={
+              <ProtectedRoute>
+                <Report />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminLayout />
+              </AdminRoute>
+            }
+          >
+            <Route index element={<AdminOverview />} />
+            <Route path="categories" element={<AdminCategories />} />
+            <Route path="questions" element={<AdminQuestions />} />
+            <Route path="companies" element={<AdminCompanies />} />
+            <Route path="results" element={<AdminResults />} />
+            <Route path="reports" element={<AdminReports />} />
+            <Route path="ai-analysis" element={<AdminAIAnalysis />} />
+            <Route path="causal-relationships" element={<AdminCausalRelationships />} />
+          </Route>
+        </Routes>
+      </div>
+    </AuthProvider>
   )
 }
 

@@ -9,6 +9,13 @@ export type Polarity = '+' | '-'
 export type ActionPhase = '0-30' | '31-60' | '61-90'
 export type AnalysisStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
+export interface Profile {
+  id: string
+  email: string | null
+  is_admin: boolean
+  created_at: string
+}
+
 export interface Company {
   id: string
   user_id: string | null

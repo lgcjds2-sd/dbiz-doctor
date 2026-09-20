@@ -3,18 +3,67 @@ import { Link, useParams } from 'react-router-dom'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
+import { TextArea } from '@/components/ui/Field'
 import { StageHeader } from '@/components/stage/StageHeader'
 import {
+  ANALYSIS_STAGE_LABELS,
   getSystemDynamicsAnalysis,
   listDeepQuestions,
+  saveDeepQuestionAnswer,
   triggerSystemDynamicsAnalysis,
   type AnalysisStage,
 } from '@/services/systemDynamics'
 import type { DeepQuestion, SystemDynamicsAnalysis } from '@/types/database'
 
-const STAGE_LABELS: Record<AnalysisStage, string> = {
-  structure: '1/2 단계: 문제구조 분석 · 심층질문 생성 중...',
-  leverage_actions: '2/2 단계: 레버리지 포인트 · 90일 실행계획 생성 중...',
+function DeepQuestionItem({ question, index }: { question: DeepQuestion; index: number }) {
+  const [answer, setAnswer] = useState(question.answer_text ?? '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    setSaved(false)
+    try {
+      await saveDeepQuestionAnswer(question.id, answer)
+      setSaved(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const isDirty = answer !== (question.answer_text ?? '')
+
+  return (
+    <li className="rounded-md border border-slate-200 px-4 py-3">
+      <p className="text-sm font-medium text-navy-900">
+        {index + 1}. {question.question_text}
+      </p>
+      {question.purpose && <p className="mt-1 text-xs text-gold-600">목적: {question.purpose}</p>}
+      <div className="mt-3">
+        <TextArea
+          value={answer}
+          onChange={(e) => {
+            setAnswer(e.target.value)
+            setSaved(false)
+          }}
+          rows={2}
+          placeholder="답변을 입력해 주세요..."
+          className="text-sm"
+        />
+        <div className="mt-1.5 flex items-center justify-end gap-2">
+          {saved && !isDirty && <span className="text-xs text-severity-strong">저장됨</span>}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleSave}
+            disabled={saving || !isDirty}
+          >
+            {saving ? '저장 중...' : '답변 저장'}
+          </Button>
+        </div>
+      </div>
+    </li>
+  )
 }
 
 const QUESTION_PURPOSES = [
@@ -81,7 +130,7 @@ export function DeepDive() {
       <div className="no-print mb-6 flex items-center justify-between rounded-md border border-slate-200 bg-white px-4 py-3">
         <p className="text-sm text-slate-500">
           {analyzing && stage
-            ? STAGE_LABELS[stage]
+            ? ANALYSIS_STAGE_LABELS[stage]
             : analysis
               ? '분석이 완료되었습니다. 데이터를 갱신하려면 다시 실행하세요.'
               : 'Claude를 호출하여 문제구조 분석, 심층질문, 인과순환지도, 레버리지 포인트, 90일 실행계획을 두 단계로 나누어 생성합니다.'}
@@ -90,6 +139,13 @@ export function DeepDive() {
           {analyzing ? '생성 중...' : analysis ? '다시 분석하기' : 'AI 분석 실행'}
         </Button>
       </div>
+
+      {analyzing && (
+        <p className="no-print mb-6 rounded-md bg-amber-50 px-4 py-3 text-xs text-severity-warning">
+          전체 생성에 2~3분 정도 걸립니다. 이 페이지를 벗어나도 서버에서 계속 처리되니,
+          잠시 후 다시 방문하시면 결과를 확인할 수 있습니다.
+        </p>
+      )}
 
       {error && (
         <p className="no-print mb-6 rounded-md bg-red-50 px-4 py-3 text-sm text-severity-critical">
@@ -169,15 +225,13 @@ export function DeepDive() {
 
           {questions.length > 0 && (
             <Card>
-              <CardHeader title="AI 심층질문" subtitle={`${questions.length}개 문항`} />
+              <CardHeader
+                title="AI 심층질문"
+                subtitle={`${questions.length}개 문항 — 답변을 입력하면 이후 인과순환지도 검증에 활용됩니다`}
+              />
               <ol className="space-y-3">
                 {questions.map((q, i) => (
-                  <li key={q.id} className="rounded-md border border-slate-200 px-4 py-3">
-                    <p className="text-sm font-medium text-navy-900">
-                      {i + 1}. {q.question_text}
-                    </p>
-                    {q.purpose && <p className="mt-1 text-xs text-gold-600">목적: {q.purpose}</p>}
-                  </li>
+                  <DeepQuestionItem key={q.id} question={q} index={i} />
                 ))}
               </ol>
             </Card>
