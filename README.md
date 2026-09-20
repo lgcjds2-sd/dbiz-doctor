@@ -48,9 +48,17 @@ npm run dev
 
 ## 5. AI 심층분석 파이프라인 (STEP 5~9) 배포
 
-취약영역 TOP3와 27개 응답을 근거로 Claude가 문제구조 분석 → 심층질문 →
-인과순환지도 → 레버리지 포인트 → 90일 실행계획을 한 번에 생성하는 Supabase
-Edge Function이 `supabase/functions/analyze-system-dynamics`에 구현되어 있습니다.
+취약영역 TOP3와 27개 응답을 근거로 Claude가 맥킨지 스타일의 경영진단 보고서
+수준으로 문제구조 분석 → 심층질문 → 인과순환지도 → 레버리지 포인트 → 90일
+실행계획을 생성합니다. 보고서 콘텐츠 분량이 많아 하나의 AI 호출로 처리하면
+Supabase Edge Function 게이트웨이 타임아웃(504)을 초과하므로, **두 개의 Edge
+Function으로 나누어 순차 호출**합니다 (`src/services/systemDynamics.ts`의
+`triggerSystemDynamicsAnalysis`가 오케스트레이션):
+
+1. `supabase/functions/analyze-system-dynamics` — 문제구조 분석(영역별 진단
+   9개, 파트별 구조화 분석, 종합의견) · 심층질문 · 인과순환지도
+2. `supabase/functions/generate-leverage-actions` — 1의 결과를 근거로
+   레버리지 포인트 · 90일 실행계획 생성
 
 ### 배포 방법
 
@@ -59,10 +67,11 @@ Edge Function이 `supabase/functions/analyze-system-dynamics`에 구현되어 �
 supabase login
 supabase link --project-ref <your-project-ref>
 
-# Edge Function 배포
+# 두 Edge Function 모두 배포
 supabase functions deploy analyze-system-dynamics
+supabase functions deploy generate-leverage-actions
 
-# Anthropic API 키를 시크릿으로 등록 (console.anthropic.com 에서 발급)
+# Anthropic API 키를 시크릿으로 등록 (console.anthropic.com 에서 발급, 두 함수가 공유)
 supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 ```
 
@@ -70,8 +79,8 @@ supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 주입되므로 별도 설정이 필요 없습니다.
 
 배포 후 진단 결과 대시보드 → "AI 심층질문 · 문제구조 분석" 카드로 들어가
-**AI 분석 실행** 버튼을 누르면 아래 5개 테이블에 결과가 저장되고, 각 화면에
-자동으로 반영됩니다.
+**AI 분석 실행** 버튼을 누르면 두 단계가 순차 실행되며(진행 상태가 화면에
+표시됨) 아래 5개 테이블에 결과가 저장되고, 각 화면에 자동으로 반영됩니다.
 
 | 단계 | 화면 경로 | 테이블 |
 | --- | --- | --- |

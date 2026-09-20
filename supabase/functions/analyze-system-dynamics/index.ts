@@ -1,14 +1,22 @@
-// Supabase Edge Function: analyze-system-dynamics
+// Supabase Edge Function: analyze-system-dynamics (STAGE 1 / 2)
 //
-// STEP 5~9를 한 번의 Claude 호출로 생성한다 (맥킨지 스타일 경영진단 보고서 수준).
-//   5. 시스템 다이내믹스 분석 (problem_statement, category_reports[9개 영역 전체],
-//      problem_structure[개요/파트별 분석/종합의견], key_variables, causal_relationships,
-//      reinforcing/balancing_loops, system_archetype_candidates, leverage_points 요약,
-//      management_implications)
-//   6. AI 심층질문 10~15개
-//   7. 인과순환지도 (nodes/edges, R1·R2/B1·B2 루프)
-//   8. 레버리지 포인트 3~5개 (진단영역 연결 + 보충설명 + Impact x Feasibility 매트릭스 필드)
-//   9. 90일 실행계획 (0-30 / 31-60 / 61-90, 각 과제에 맥락 설명 포함)
+// 이전에는 STEP 5~9를 한 번의 Claude 호출로 생성했으나, 보고서 콘텐츠가 늘어나면서
+// 응답 생성 시간이 Supabase Edge Function 게이트웨이의 타임아웃을 초과해 504 오류가
+// 발생했다. 이를 해결하기 위해 두 단계로 분리했다:
+//
+//   STAGE 1 (이 함수): 문제구조/진단 파트
+//     5. 시스템 다이내믹스 분석 (problem_statement, category_reports[9개 영역 전체],
+//        problem_structure[개요/파트별 분석/종합의견], key_variables, causal_relationships,
+//        reinforcing/balancing_loops, system_archetype_candidates, leverage_points 요약,
+//        management_implications)
+//     6. AI 심층질문 10~15개
+//     7. 인과순환지도 (nodes/edges, R1·R2/B1·B2 루프)
+//
+//   STAGE 2 (generate-leverage-actions 함수, 별도 배포): 실행 파트
+//     8. 레버리지 포인트 3~5개
+//     9. 90일 실행계획
+//
+// 클라이언트는 STAGE 1 완료 후 STAGE 2를 순차 호출한다 (src/services/systemDynamics.ts).
 //
 // 배포: supabase functions deploy analyze-system-dynamics
 // 시크릿: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
@@ -25,9 +33,9 @@ const CORS_HEADERS = {
 const ANTHROPIC_MODEL = 'claude-sonnet-5'
 
 const TOOL_SCHEMA = {
-  name: 'submit_diagnosis_analysis',
+  name: 'submit_diagnosis_structure',
   description:
-    '중소기업 경영진단 시스템 다이내믹스 분석 결과를 구조화된 형태로 제출한다.',
+    '중소기업 경영진단의 문제구조 분석 결과(영역별 진단, 구조화된 문제분석, 인과순환지도, 심층질문)를 구조화된 형태로 제출한다.',
   input_schema: {
     type: 'object',
     properties: {
@@ -135,7 +143,11 @@ const TOOL_SCHEMA = {
         },
       },
       system_archetype_candidates: { type: 'array', items: { type: 'string' } },
-      leverage_points_summary: { type: 'array', items: { type: 'string' } },
+      leverage_points_summary: {
+        type: 'array',
+        items: { type: 'string' },
+        description: '레버리지 포인트 방향성 요약 3~5개 (상세 내용은 STAGE 2에서 별도 생성)',
+      },
       management_implications: { type: 'string' },
       deep_questions: {
         type: 'array',
@@ -185,65 +197,6 @@ const TOOL_SCHEMA = {
         },
         required: ['nodes', 'edges'],
       },
-      leverage_points: {
-        type: 'array',
-        description: '3~5개',
-        items: {
-          type: 'object',
-          properties: {
-            leverage_point: { type: 'string' },
-            related_problem: { type: 'string' },
-            expected_impact: { type: 'string' },
-            implementation_difficulty: { type: 'string', enum: ['낮음', '중간', '높음'] },
-            time_to_effect: { type: 'string' },
-            priority_score: { type: 'number', minimum: 0, maximum: 100 },
-            recommended_action: { type: 'string' },
-            related_categories: {
-              type: 'array',
-              items: { type: 'string' },
-              description: '이 레버리지 포인트가 해결하는 진단영역 코드 1~3개 (problem_structure.parts와 연결)',
-            },
-            supplementary_explanation: {
-              type: 'string',
-              description:
-                '150~250자. 이 레버리지 포인트가 problem_structure의 어느 파트/어느 진단영역 문제를 어떤 메커니즘으로 해결하는지 구체적으로 연결해 설명',
-            },
-          },
-          required: [
-            'leverage_point',
-            'related_problem',
-            'expected_impact',
-            'implementation_difficulty',
-            'time_to_effect',
-            'priority_score',
-            'recommended_action',
-            'related_categories',
-            'supplementary_explanation',
-          ],
-        },
-      },
-      action_plan: {
-        type: 'array',
-        description: '0-30/31-60/61-90 단계별 실행과제, 단계당 3~6개. 앞서 도출한 leverage_points에서 파생시킬 것.',
-        items: {
-          type: 'object',
-          properties: {
-            phase: { type: 'string', enum: ['0-30', '31-60', '61-90'] },
-            action: { type: 'string', description: '구체적 실행과제명' },
-            context: {
-              type: 'string',
-              description:
-                '80~150자. 왜 이 시점에 이 과제를 하는지, 어떤 레버리지 포인트/진단결과와 연결되는지, 이전 단계 과제와 어떻게 이어지는지 서술',
-            },
-            owner: { type: 'string' },
-            kpi: { type: 'string' },
-            target: { type: 'string' },
-            due_day_offset: { type: 'number', description: '계획 시작일로부터 경과 일수(1~90)' },
-            expected_effect: { type: 'string' },
-          },
-          required: ['phase', 'action', 'context', 'owner', 'kpi', 'target', 'due_day_offset', 'expected_effect'],
-        },
-      },
     },
     required: [
       'problem_statement',
@@ -258,8 +211,6 @@ const TOOL_SCHEMA = {
       'management_implications',
       'deep_questions',
       'causal_loop_diagram',
-      'leverage_points',
-      'action_plan',
     ],
   },
 }
@@ -267,16 +218,19 @@ const TOOL_SCHEMA = {
 function buildPrompt(context: Record<string, unknown>) {
   return `당신은 맥킨지(McKinsey) 스타일의 경영컨설팅 보고서를 작성하는, 시스템 다이내믹스
 방법론에 정통한 시니어 파트너입니다. 아래는 한 중소기업의 경영진단(Quick Diagnosis)
-데이터입니다. 이 데이터를 근거로 submit_diagnosis_analysis 도구를 호출하여, 그대로
+데이터입니다. 이 데이터를 근거로 submit_diagnosis_structure 도구를 호출하여, 그대로
 경영진 보고서에 실릴 수 있는 수준의 깊이 있고 근거 기반의 결과를 제출하세요.
+
+이번 호출에서는 "문제구조 분석" 파트만 작성합니다 (레버리지 포인트/실행계획은 다음
+단계에서 별도로 작성되므로 이번에는 방향성 요약(leverage_points_summary)만 간단히
+제시하면 됩니다).
 
 문체·품질 요구사항 (가장 중요):
 - 절대 일반론이나 뻔한 조언을 쓰지 말 것. 반드시 survey_responses의 구체적 진단 차원
   (diagnosis_dimension)과 점수, all_category_scores의 실제 순위/점수를 인용하며 서술할 것.
 - 문장은 컨설팅 보고서체("~로 나타난다", "~로 판단된다", "~가 요구된다")로 작성하고,
   근거 → 해석 → 시사점의 3단 논리 구조를 각 문단에 담을 것.
-- 지정된 글자 수 범위를 최대한 채울 것 (짧게 쓰지 말 것). 보고서는 인쇄 시 최소 5페이지
-  분량이 되어야 하므로 각 서술 항목의 분량 기준을 반드시 준수할 것.
+- 지정된 글자 수 범위를 최대한 채울 것 (짧게 쓰지 말 것).
 
 항목별 요구사항:
 - category_reports: 9개 진단영역 전부 빠짐없이 작성 (ST, CM, MS, PS, OP, FI, HR, LE, DX).
@@ -292,15 +246,23 @@ function buildPrompt(context: Record<string, unknown>) {
   순환 구조여야 함.
 - deep_questions는 10~15개, 6가지 목적(시간적 변화, 인과관계 검증, 피드백 루프, 시간지연,
   정책 부작용, 시스템 원형)을 고르게 포함할 것.
-- leverage_points는 3~5개. 각각 related_categories로 problem_structure.parts와 명시적으로
-  연결하고, supplementary_explanation(150~250자)에서 그 연결 메커니즘을 설명할 것.
-- action_plan은 leverage_points에서 파생시켜 0-30/31-60/61-90 단계에 배분하고, 각 항목의
-  context(80~150자)에서 왜 이 시점에 이 과제가 필요한지, 어느 레버리지 포인트와
-  연결되는지 서술할 것.
 - 모든 텍스트는 한국어로 작성할 것.
 
 [진단 데이터]
 ${JSON.stringify(context, null, 2)}`
+}
+
+// Claude가 깊게 중첩된 객체/배열 필드를 이중 인코딩된 JSON 문자열로 반환하는
+// 경우가 있어(도구 호출 스키마가 복잡할 때 관찰됨), 저장 전에 방어적으로 파싱한다.
+export function coerceJson<T>(value: unknown, fallback: T): T {
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as T
+    } catch {
+      return fallback
+    }
+  }
+  return (value as T) ?? fallback
 }
 
 function slugify(name: string, index: number) {
@@ -414,9 +376,9 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
-        max_tokens: 24000,
+        max_tokens: 16000,
         tools: [TOOL_SCHEMA],
-        tool_choice: { type: 'tool', name: 'submit_diagnosis_analysis' },
+        tool_choice: { type: 'tool', name: 'submit_diagnosis_structure' },
         messages: [{ role: 'user', content: buildPrompt(context) }],
       }),
     })
@@ -468,26 +430,36 @@ Deno.serve(async (req) => {
         nodes: { id: string; label: string; category_code?: string }[]
         edges: unknown[]
       }
-      leverage_points: (Record<string, unknown> & { related_categories?: string[] })[]
-      action_plan: (Record<string, unknown> & { phase: string; due_day_offset: number })[]
     }
 
-    // AI가 일부 필드를 누락하거나(토큰 한도, 스키마 해석 차이 등) 응답해도
-    // 파이프라인 전체가 실패하지 않도록 모든 배열/객체 필드에 방어적 기본값을 둔다.
-    const categoryReports = result.category_reports ?? []
-    const problemStructure = result.problem_structure ?? { overview: '', parts: [], synthesis: '' }
-    const keyVariables = result.key_variables ?? []
-    const causalRelationships = result.causal_relationships ?? []
-    const reinforcingLoops = result.reinforcing_loops ?? []
-    const balancingLoops = result.balancing_loops ?? []
-    const systemArchetypes = result.system_archetype_candidates ?? []
-    const leveragePointsSummary = result.leverage_points_summary ?? []
-    const deepQuestions = result.deep_questions ?? []
-    const causalLoopDiagram = result.causal_loop_diagram ?? { nodes: [], edges: [] }
-    const leveragePoints = result.leverage_points ?? []
-    const actionPlan = result.action_plan ?? []
+    // AI가 일부 필드를 누락하거나(토큰 한도, 스키마 해석 차이 등), 혹은 깊게 중첩된
+    // 필드를 JSON 문자열로 이중 인코딩해 응답해도 파이프라인이 실패하지 않도록
+    // 모든 배열/객체 필드에 방어적 기본값 + 파싱을 적용한다.
+    const categoryReports = coerceJson(result.category_reports, [] as typeof result.category_reports)
+    const problemStructure = coerceJson(result.problem_structure, {
+      overview: '',
+      parts: [],
+      synthesis: '',
+    } as typeof result.problem_structure)
+    const keyVariables = coerceJson(result.key_variables, [] as typeof result.key_variables)
+    const causalRelationships = coerceJson(result.causal_relationships, [] as typeof result.causal_relationships)
+    const reinforcingLoops = coerceJson(result.reinforcing_loops, [] as typeof result.reinforcing_loops)
+    const balancingLoops = coerceJson(result.balancing_loops, [] as typeof result.balancing_loops)
+    const systemArchetypes = coerceJson(result.system_archetype_candidates, [] as string[])
+    const leveragePointsSummary = coerceJson(result.leverage_points_summary, [] as string[])
+    const deepQuestions = coerceJson(result.deep_questions, [] as typeof result.deep_questions)
+    const causalLoopDiagram = coerceJson(result.causal_loop_diagram, { nodes: [], edges: [] } as typeof result.causal_loop_diagram)
 
-    // 1) 시스템 다이내믹스 분석 upsert
+    // 드물게 모델이 스키마를 따르지 않아 핵심 섹션이 비어 있는 경우, 빈 성공 응답
+    // 대신 명확한 에러로 알려 재시도를 유도한다.
+    if (categoryReports.length === 0 && problemStructure.parts.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'AI가 문제구조 분석을 생성하지 못했습니다. 다시 시도해 주세요.' }),
+        { status: 502, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // 1) 시스템 다이내믹스 분석 upsert (status: structure_completed → STAGE 2가 이어서 completed로 갱신)
     const { error: upsertAnalysisError } = await supabase.from('system_dynamics_analyses').upsert(
       {
         assessment_id: assessmentId,
@@ -501,7 +473,7 @@ Deno.serve(async (req) => {
         management_implications: result.management_implications,
         category_reports: categoryReports,
         problem_structure: problemStructure,
-        status: 'completed',
+        status: 'processing',
       },
       { onConflict: 'assessment_id' },
     )
@@ -547,53 +519,6 @@ Deno.serve(async (req) => {
       { onConflict: 'assessment_id' },
     )
     if (upsertCldError) throw upsertCldError
-
-    // 4) 레버리지 포인트 재생성
-    await supabase.from('leverage_points').delete().eq('assessment_id', assessmentId)
-    if (leveragePoints.length > 0) {
-      const { error } = await supabase.from('leverage_points').insert(
-        leveragePoints.map((lp, i) => ({
-          assessment_id: assessmentId,
-          leverage_point: lp.leverage_point,
-          related_problem: lp.related_problem,
-          expected_impact: lp.expected_impact,
-          implementation_difficulty: lp.implementation_difficulty,
-          time_to_effect: lp.time_to_effect,
-          priority_score: lp.priority_score,
-          recommended_action: lp.recommended_action,
-          related_categories: lp.related_categories ?? [],
-          supplementary_explanation: lp.supplementary_explanation,
-          display_order: i + 1,
-        })),
-      )
-      if (error) throw error
-    }
-
-    // 5) 90일 실행계획 재생성
-    await supabase.from('action_plans').delete().eq('assessment_id', assessmentId)
-    if (actionPlan.length > 0) {
-      const startDate = new Date()
-      const { error } = await supabase.from('action_plans').insert(
-        actionPlan.map((a, i) => {
-          const dueDate = new Date(startDate)
-          dueDate.setDate(dueDate.getDate() + (Number(a.due_day_offset) || 30))
-          return {
-            assessment_id: assessmentId,
-            leverage_point_id: null,
-            phase: a.phase,
-            action: a.action,
-            context: a.context,
-            owner: a.owner,
-            kpi: a.kpi,
-            target: a.target,
-            due_date: dueDate.toISOString().slice(0, 10),
-            expected_effect: a.expected_effect,
-            display_order: i + 1,
-          }
-        }),
-      )
-      if (error) throw error
-    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

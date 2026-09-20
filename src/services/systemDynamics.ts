@@ -56,13 +56,8 @@ export async function listLeveragePoints(assessmentId: string): Promise<Leverage
   return (data ?? []) as LeveragePoint[]
 }
 
-/**
- * Supabase Edge Function(analyze-system-dynamics)을 호출해 STEP 5~9
- * (시스템 다이내믹스 분석/심층질문/인과순환지도/레버리지 포인트/90일 실행계획)를
- * 한 번에 생성하고 관련 테이블에 저장한다.
- */
-export async function triggerSystemDynamicsAnalysis(assessmentId: string): Promise<void> {
-  const { error } = await supabase.functions.invoke('analyze-system-dynamics', {
+async function invokeAnalysisFunction(name: string, assessmentId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke(name, {
     body: { assessmentId },
   })
   if (error) {
@@ -73,6 +68,27 @@ export async function triggerSystemDynamicsAnalysis(assessmentId: string): Promi
     }
     throw error
   }
+}
+
+export type AnalysisStage = 'structure' | 'leverage_actions'
+
+/**
+ * STEP 5~9(시스템 다이내믹스 분석/심층질문/인과순환지도/레버리지 포인트/90일 실행계획)를
+ * 생성한다. 하나의 거대한 AI 호출은 Supabase Edge Function 게이트웨이 타임아웃을 초과할 수
+ * 있어(대용량 보고서 콘텐츠 생성 시 관찰됨) 두 단계로 나누어 순차 호출한다:
+ *   1. analyze-system-dynamics: 문제구조 분석 · 심층질문 · 인과순환지도
+ *   2. generate-leverage-actions: 레버리지 포인트 · 90일 실행계획 (1의 결과를 근거로 생성)
+ * onStageChange로 진행 상태를 UI에 알릴 수 있다.
+ */
+export async function triggerSystemDynamicsAnalysis(
+  assessmentId: string,
+  onStageChange?: (stage: AnalysisStage) => void,
+): Promise<void> {
+  onStageChange?.('structure')
+  await invokeAnalysisFunction('analyze-system-dynamics', assessmentId)
+
+  onStageChange?.('leverage_actions')
+  await invokeAnalysisFunction('generate-leverage-actions', assessmentId)
 }
 
 export async function listActionPlans(assessmentId: string): Promise<ActionPlan[]> {

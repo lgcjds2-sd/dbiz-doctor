@@ -8,8 +8,14 @@ import {
   getSystemDynamicsAnalysis,
   listDeepQuestions,
   triggerSystemDynamicsAnalysis,
+  type AnalysisStage,
 } from '@/services/systemDynamics'
 import type { DeepQuestion, SystemDynamicsAnalysis } from '@/types/database'
+
+const STAGE_LABELS: Record<AnalysisStage, string> = {
+  structure: '1/2 단계: 문제구조 분석 · 심층질문 생성 중...',
+  leverage_actions: '2/2 단계: 레버리지 포인트 · 90일 실행계획 생성 중...',
+}
 
 const QUESTION_PURPOSES = [
   '문제의 시간적 변화 확인',
@@ -24,6 +30,7 @@ export function DeepDive() {
   const { assessmentId } = useParams<{ assessmentId: string }>()
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
+  const [stage, setStage] = useState<AnalysisStage | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [analysis, setAnalysis] = useState<SystemDynamicsAnalysis | null>(null)
   const [questions, setQuestions] = useState<DeepQuestion[]>([])
@@ -48,7 +55,7 @@ export function DeepDive() {
     setAnalyzing(true)
     setError(null)
     try {
-      await triggerSystemDynamicsAnalysis(assessmentId)
+      await triggerSystemDynamicsAnalysis(assessmentId, setStage)
       await load()
     } catch (err) {
       setError(
@@ -58,6 +65,7 @@ export function DeepDive() {
       )
     } finally {
       setAnalyzing(false)
+      setStage(null)
     }
   }
 
@@ -72,12 +80,14 @@ export function DeepDive() {
 
       <div className="no-print mb-6 flex items-center justify-between rounded-md border border-slate-200 bg-white px-4 py-3">
         <p className="text-sm text-slate-500">
-          {analysis
-            ? '분석이 완료되었습니다. 데이터를 갱신하려면 다시 실행하세요.'
-            : 'Claude를 호출하여 문제구조 분석, 심층질문, 인과순환지도, 레버리지 포인트, 90일 실행계획을 한 번에 생성합니다.'}
+          {analyzing && stage
+            ? STAGE_LABELS[stage]
+            : analysis
+              ? '분석이 완료되었습니다. 데이터를 갱신하려면 다시 실행하세요.'
+              : 'Claude를 호출하여 문제구조 분석, 심층질문, 인과순환지도, 레버리지 포인트, 90일 실행계획을 두 단계로 나누어 생성합니다.'}
         </p>
         <Button onClick={handleAnalyze} disabled={analyzing}>
-          {analyzing ? 'AI 분석 실행 중...' : analysis ? '다시 분석하기' : 'AI 분석 실행'}
+          {analyzing ? '생성 중...' : analysis ? '다시 분석하기' : 'AI 분석 실행'}
         </Button>
       </div>
 
