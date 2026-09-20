@@ -11,9 +11,9 @@ React + TypeScript + Tailwind CSS + Supabase
 3. 이어서 `supabase/seed.sql` 내용을 실행합니다. (9개 진단영역 + 27개 설문문항 + 인과관계 샘플 삽입)
 4. Project Settings → API 에서 `Project URL`과 `anon public key`를 확인합니다.
 
-> MVP는 로그인 없이 anon key로 동작합니다. Supabase 신규 테이블은 기본적으로 RLS가
-> 비활성 상태이므로 별도 정책 없이 CRUD가 가능합니다. 운영 배포 전에는 반드시
-> Supabase Auth 연동 후 RLS 정책을 추가하세요.
+> 이메일/비밀번호 로그인과 사용자별 RLS가 적용되어 있습니다. `schema.sql` 실행 후
+> `supabase/auth_and_rls.sql`과 `supabase/consultant_seal.sql`도 순서대로 실행하세요
+> (각 파일 상단 주석 참고).
 
 ## 2. 환경변수 설정
 
@@ -35,7 +35,23 @@ npm install
 npm run dev
 ```
 
-## 4. 핵심 화면 (MVP 구현 완료)
+## 4. 배포 (Vercel)
+
+1. [vercel.com](https://vercel.com) 에서 GitHub 계정으로 로그인
+2. **Add New → Project** → 이 저장소(`dbiz-doctor`) 선택 → Import
+3. Framework Preset: **Vite** (자동 감지됨), 빌드 설정은 기본값 그대로 사용
+4. **Environment Variables**에 `.env`와 동일한 값 추가:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+5. **Deploy** 클릭 → 몇 분 후 `https://<project>.vercel.app` 주소로 접속 가능
+
+배포 후 Supabase 대시보드 **Authentication → URL Configuration**에서
+**Site URL**과 **Redirect URLs**에 위 Vercel 주소를 추가해야 회원가입 이메일
+인증 링크가 localhost가 아닌 실제 배포 주소로 연결됩니다.
+
+`vercel.json`에 SPA 라우팅(새로고침 시 404 방지) 설정이 이미 포함되어 있습니다.
+
+## 5. 핵심 화면 (MVP 구현 완료)
 
 | 경로 | 설명 |
 | --- | --- |
@@ -46,7 +62,7 @@ npm run dev
 | `/assessments` | 진단이력 |
 | `/admin` | 관리자 (진단영역/설문문항/기업/결과/보고서/인과관계 관리) |
 
-## 5. AI 심층분석 파이프라인 (STEP 5~9) 배포
+## 6. AI 심층분석 파이프라인 (STEP 5~9) 배포
 
 취약영역 TOP3와 27개 응답을 근거로 Claude가 맥킨지 스타일의 경영진단 보고서
 수준으로 문제구조 분석 → 심층질문 → 인과순환지도 → 레버리지 포인트 → 90일
@@ -97,7 +113,7 @@ supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 > Edge Function을 아직 배포하지 않았거나 `ANTHROPIC_API_KEY`가 없어도 위 화면들은
 > 빈 상태(EmptyState)로 정상 동작합니다 — 배포 후 버튼만 누르면 됩니다.
 
-## 6. 폴더 구조
+## 7. 폴더 구조
 
 ```
 src/
