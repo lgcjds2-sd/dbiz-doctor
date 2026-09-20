@@ -113,3 +113,48 @@ export async function listActionPlans(assessmentId: string): Promise<ActionPlan[
   if (error) throw error
   return (data ?? []) as ActionPlan[]
 }
+
+export async function updateActionPlan(
+  id: string,
+  patch: Partial<
+    Pick<ActionPlan, 'action' | 'context' | 'owner' | 'kpi' | 'target' | 'due_date' | 'expected_effect' | 'phase'>
+  >,
+): Promise<ActionPlan> {
+  const { data, error } = await supabase
+    .from('action_plans')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data as ActionPlan
+}
+
+export async function createActionPlan(input: {
+  assessment_id: string
+  phase: ActionPlan['phase']
+  display_order: number
+}): Promise<ActionPlan> {
+  const { data, error } = await supabase
+    .from('action_plans')
+    .insert({
+      assessment_id: input.assessment_id,
+      phase: input.phase,
+      display_order: input.display_order,
+      action: '새 실행과제',
+      owner: '',
+      kpi: '',
+      target: '',
+      expected_effect: '',
+      context: '',
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data as ActionPlan
+}
+
+export async function deleteActionPlan(id: string): Promise<void> {
+  const { error } = await supabase.from('action_plans').delete().eq('id', id)
+  if (error) throw error
+}
