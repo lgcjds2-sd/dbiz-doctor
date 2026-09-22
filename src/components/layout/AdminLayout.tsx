@@ -25,7 +25,10 @@ const groups = [
   },
   {
     title: '계정',
-    items: [{ to: '/admin/consultant-profile', label: '경영지도사 정보 설정' }],
+    items: [
+      { to: '/admin/users', label: '회원 관리' },
+      { to: '/admin/consultant-profile', label: '경영지도사 정보 설정' },
+    ],
   },
 ]
 

@@ -28,6 +28,20 @@ export async function updateMyProfile(
   return data as Profile
 }
 
+export async function listAllProfiles(): Promise<Profile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as Profile[]
+}
+
+export async function setUserAdmin(userId: string, isAdmin: boolean): Promise<void> {
+  const { error } = await supabase.from('profiles').update({ is_admin: isAdmin }).eq('id', userId)
+  if (error) throw error
+}
+
 /**
  * 보고서에 표시할 담당 경영지도사 정보를 조회한다.
  * 이 배포는 한 명의 경영지도사가 운영한다고 가정하고, 관리자 프로필 중
