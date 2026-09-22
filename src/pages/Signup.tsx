@@ -95,7 +95,7 @@ export function Signup() {
               required
             />
           </Field>
-          <Field label="이메일" required>
+          <Field label="이메일" required hint="로그인 시 아이디로 사용됩니다">
             <TextInput
               type="email"
               value={email}
