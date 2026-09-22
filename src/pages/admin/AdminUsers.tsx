@@ -44,6 +44,9 @@ export function AdminUsers() {
         <table className="w-full text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
+              <th className="px-4 py-3 font-semibold">이름</th>
+              <th className="px-4 py-3 font-semibold">소속</th>
+              <th className="px-4 py-3 font-semibold">연락처</th>
               <th className="px-4 py-3 font-semibold">이메일</th>
               <th className="px-4 py-3 font-semibold">가입일</th>
               <th className="px-4 py-3 font-semibold">등록 기업 수</th>
@@ -58,9 +61,12 @@ export function AdminUsers() {
               return (
                 <tr key={p.id}>
                   <td className="px-4 py-3 font-medium text-navy-900">
-                    {p.email}
+                    {p.name || '-'}
                     {isSelf && <span className="ml-2 text-xs text-slate-400">(나)</span>}
                   </td>
+                  <td className="px-4 py-3 text-slate-500">{p.affiliation || '-'}</td>
+                  <td className="px-4 py-3 text-slate-500">{p.phone || '-'}</td>
+                  <td className="px-4 py-3 text-slate-500">{p.email}</td>
                   <td className="px-4 py-3 text-slate-500">
                     {new Date(p.created_at).toLocaleDateString('ko-KR')}
                   </td>

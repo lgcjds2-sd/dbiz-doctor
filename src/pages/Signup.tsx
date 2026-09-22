@@ -8,6 +8,9 @@ import { useAuth } from '@/contexts/AuthContext'
 export function Signup() {
   const { signUp } = useAuth()
   const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [affiliation, setAffiliation] = useState('')
+  const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
@@ -27,7 +30,11 @@ export function Signup() {
     }
     setSubmitting(true)
     setError(null)
-    const { error, needsEmailConfirmation } = await signUp(email, password)
+    const { error, needsEmailConfirmation } = await signUp(email, password, {
+      name,
+      affiliation,
+      phone,
+    })
     setSubmitting(false)
     if (error) {
       setError(error.includes('already registered') ? '이미 가입된 이메일입니다.' : error)
@@ -60,8 +67,34 @@ export function Signup() {
   return (
     <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
       <Card>
-        <CardHeader title="회원가입" subtitle="이메일과 비밀번호로 계정을 만들고 경영진단을 시작하세요." />
+        <CardHeader title="회원가입" subtitle="정보를 입력하고 경영진단을 시작하세요." />
         <form onSubmit={handleSubmit} className="space-y-4">
+          <Field label="이름" required>
+            <TextInput
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="홍길동"
+              required
+              autoFocus
+            />
+          </Field>
+          <Field label="소속(회사명)" required>
+            <TextInput
+              value={affiliation}
+              onChange={(e) => setAffiliation(e.target.value)}
+              placeholder="예: (주)디비즈"
+              required
+            />
+          </Field>
+          <Field label="연락처" required>
+            <TextInput
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="010-1234-5678"
+              required
+            />
+          </Field>
           <Field label="이메일" required>
             <TextInput
               type="email"
@@ -69,7 +102,6 @@ export function Signup() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
               required
-              autoFocus
             />
           </Field>
           <Field label="비밀번호" required hint="6자 이상">

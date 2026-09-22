@@ -12,6 +12,9 @@ export type AnalysisStatus = 'pending' | 'processing' | 'completed' | 'failed'
 export interface Profile {
   id: string
   email: string | null
+  name: string | null
+  affiliation: string | null
+  phone: string | null
   is_admin: boolean
   consultant_name: string | null
   license_number: string | null

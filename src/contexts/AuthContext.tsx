@@ -12,6 +12,7 @@ interface AuthContextValue {
   signUp: (
     email: string,
     password: string,
+    profile: { name: string; affiliation: string; phone: string },
   ) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
@@ -49,8 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  async function signUp(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({ email, password })
+  async function signUp(
+    email: string,
+    password: string,
+    profile: { name: string; affiliation: string; phone: string },
+  ) {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: profile },
+    })
     return {
       error: error?.message ?? null,
       // 프로젝트 Auth 설정에서 이메일 확인이 켜져 있으면 세션 없이 user만 반환된다.
